@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { saveConfig, loadConfig } from "../lib/driveStorage";
+import { saveConfig, loadConfig } from "../lib/api";
 import { Btn } from "./ui";
 import StepAPI from "./StepAPI";
 import StepTiendas from "./StepTiendas";
@@ -14,7 +14,7 @@ const DEFAULT_CFG = {
   products: [], campaigns: {}, campaignMapping: {},
 };
 
-export default function ConfigPanel({ token, user, onLogout }) {
+export default function ConfigPanel({ token, user, onLogout, onAuthExpired }) {
   const [step, setStep] = useState(0);
   const [cfg, setCfg] = useState(DEFAULT_CFG);
   const [saving, setSaving] = useState(false);
@@ -28,13 +28,16 @@ export default function ConfigPanel({ token, user, onLogout }) {
     setTimeout(() => setSaved(false), 3500);
   }, []);
 
-  // Load config from Drive on mount
+  // Load config from DB on mount
   useEffect(() => {
     loadConfig(token)
       .then((data) => {
         if (data) setCfg(data);
       })
-      .catch((e) => setLoadError(e.message))
+      .catch((e) => {
+        if (e.message === "AUTH_EXPIRED") { onAuthExpired(); return; }
+        setLoadError(e.message);
+      })
       .finally(() => setLoadingInit(false));
   }, [token]);
 
@@ -44,6 +47,7 @@ export default function ConfigPanel({ token, user, onLogout }) {
       await saveConfig(token, cfg);
       flashSaved();
     } catch (e) {
+      if (e.message === "AUTH_EXPIRED") { onAuthExpired(); return; }
       alert(`Error al guardar: ${e.message}`);
     } finally {
       setSaving(false);
@@ -57,7 +61,7 @@ export default function ConfigPanel({ token, user, onLogout }) {
         alignItems: "center", justifyContent: "center", color: "#4b5563",
         fontFamily: "'DM Mono', monospace", fontSize: 13,
       }}>
-        Cargando configuración desde Drive...
+        Cargando configuración...
       </div>
     );
   }

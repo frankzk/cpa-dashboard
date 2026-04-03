@@ -1,15 +1,14 @@
 import { useGoogleLogin } from "@react-oauth/google";
 
-export default function LoginScreen({ onLogin }) {
+// We only need openid + email + profile — Drive scope is no longer used
+// (config now lives in Supabase, accessed via Vercel Functions)
+const SCOPES = ["openid", "email", "profile"].join(" ");
+
+export default function LoginScreen({ onLogin, expired = false }) {
   const login = useGoogleLogin({
     onSuccess: (tokenResponse) => onLogin(tokenResponse),
     onError: (err) => console.error("Login failed", err),
-    scope: [
-      "openid",
-      "email",
-      "profile",
-      "https://www.googleapis.com/auth/drive.appdata",
-    ].join(" "),
+    scope: SCOPES,
   });
 
   return (
@@ -35,9 +34,19 @@ export default function LoginScreen({ onLogin }) {
           Panel de configuración
         </h1>
 
-        <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 36, lineHeight: 1.6 }}>
-          Inicia sesión con Google para guardar tu configuración y acceder desde cualquier dispositivo.
-        </p>
+        {expired ? (
+          <div style={{
+            background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)",
+            borderRadius: 10, padding: "10px 16px", marginBottom: 24,
+            fontSize: 12, color: "#fbbf24", fontFamily: "'DM Mono', monospace",
+          }}>
+            Tu sesión expiró. Vuelve a iniciar sesión para continuar.
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 36, lineHeight: 1.6 }}>
+            Inicia sesión con Google para guardar tu configuración y acceder desde cualquier dispositivo.
+          </p>
+        )}
 
         <button
           onClick={() => login()}
@@ -45,18 +54,17 @@ export default function LoginScreen({ onLogin }) {
             display: "flex", alignItems: "center", gap: 12, justifyContent: "center",
             width: "100%", background: "#fff", color: "#111827", border: "none",
             borderRadius: 10, padding: "12px 20px", fontSize: 14, fontWeight: 600,
-            cursor: "pointer", fontFamily: "'Sora', sans-serif",
-            transition: "opacity 0.15s",
+            cursor: "pointer", fontFamily: "'Sora', sans-serif", transition: "opacity 0.15s",
           }}
-          onMouseEnter={(e) => (e.target.style.opacity = "0.9")}
-          onMouseLeave={(e) => (e.target.style.opacity = "1")}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
         >
           <GoogleIcon />
-          Continuar con Google
+          {expired ? "Volver a iniciar sesión" : "Continuar con Google"}
         </button>
 
         <p style={{ fontSize: 11, color: "#374151", marginTop: 20, fontFamily: "'DM Mono', monospace" }}>
-          Tu config se guarda en tu Google Drive (carpeta privada de la app)
+          Tu configuración se guarda de forma segura en la base de datos de la app
         </p>
       </div>
     </div>

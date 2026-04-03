@@ -5,23 +5,24 @@ import ConfigPanel from "./components/ConfigPanel";
 const TOKEN_KEY = "cpa-google-token";
 const USER_KEY = "cpa-google-user";
 
-// Fetch basic profile info using the access token
 async function fetchUserInfo(accessToken) {
   const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (!res.ok) throw new Error("Could not fetch user info");
+  if (!res.ok) throw new Error("userinfo failed");
   return res.json();
 }
 
 export default function App() {
   const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY));
   const [user, setUser] = useState(() => {
-    const stored = sessionStorage.getItem(USER_KEY);
-    return stored ? JSON.parse(stored) : null;
+    const s = sessionStorage.getItem(USER_KEY);
+    return s ? JSON.parse(s) : null;
   });
+  // null = normal | "expired" = show re-login banner
+  const [authState, setAuthState] = useState("normal");
 
-  // When a token arrives but we have no user info yet, fetch it
+  // Fetch user info when we have a token but no profile yet
   useEffect(() => {
     if (token && !user) {
       fetchUserInfo(token)
@@ -29,29 +30,41 @@ export default function App() {
           setUser(info);
           sessionStorage.setItem(USER_KEY, JSON.stringify(info));
         })
-        .catch(() => {
-          // Token invalid or expired — force re-login
-          handleLogout();
-        });
+        .catch(() => clearSession());
     }
   }, [token]);
 
-  const handleLogin = (tokenResponse) => {
-    const { access_token } = tokenResponse;
-    setToken(access_token);
-    sessionStorage.setItem(TOKEN_KEY, access_token);
-  };
-
-  const handleLogout = () => {
+  const clearSession = () => {
     setToken(null);
     setUser(null);
+    setAuthState("normal");
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(USER_KEY);
   };
 
+  const handleLogin = ({ access_token }) => {
+    setToken(access_token);
+    setAuthState("normal");
+    sessionStorage.setItem(TOKEN_KEY, access_token);
+  };
+
+  const handleAuthExpired = () => {
+    // Don't nuke the session — just show a re-login prompt so the user
+    // can re-authenticate without losing the current step/data in memory.
+    clearSession();
+    setAuthState("expired");
+  };
+
   if (!token) {
-    return <LoginScreen onLogin={handleLogin} />;
+    return <LoginScreen onLogin={handleLogin} expired={authState === "expired"} />;
   }
 
-  return <ConfigPanel token={token} user={user} onLogout={handleLogout} />;
+  return (
+    <ConfigPanel
+      token={token}
+      user={user}
+      onLogout={clearSession}
+      onAuthExpired={handleAuthExpired}
+    />
+  );
 }
